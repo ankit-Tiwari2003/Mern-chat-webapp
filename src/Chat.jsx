@@ -19,7 +19,8 @@ export default function Chat() {
     connectToWs();
   }, [selectedUserId]);
   function connectToWs() {
-    const ws = new WebSocket('ws://localhost:4040');
+    const wsurl = process.env.REACT_APP_API_URL?.replace('http', 'ws')
+    const ws = new WebSocket(wsurl);
     setWs(ws);
     ws.addEventListener('message', handleMessage);
     ws.addEventListener('close', () => {
