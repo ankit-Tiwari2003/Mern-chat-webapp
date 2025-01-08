@@ -19,7 +19,7 @@ export default function Chat() {
     connectToWs();
   }, [selectedUserId]);
   function connectToWs() {
-    const wsurl = 'ws://mern-chat-api-ecm2.onrender.com'
+    const wsurl = 'wss://mern-chat-api-ecm2.onrender.com'
     const ws = new WebSocket(wsurl);
     setWs(ws);
     ws.addEventListener('message', handleMessage);
