@@ -5,6 +5,7 @@ import {UserContext} from "./UserContext.jsx";
 import {uniqBy} from "lodash";
 import axios from "axios";
 import Contact from "./Contact";
+import { Menu } from 'lucide-react';
 
 export default function Chat() {
   const [ws,setWs] = useState(null);
@@ -13,13 +14,17 @@ export default function Chat() {
   const [selectedUserId,setSelectedUserId] = useState(null);
   const [newMessageText,setNewMessageText] = useState('');
   const [messages,setMessages] = useState([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const {username,id,setId,setUsername} = useContext(UserContext);
   const divUnderMessages = useRef();
+
   useEffect(() => {
     connectToWs();
   }, [selectedUserId]);
+
+  // All existing WebSocket and message handling functions remain the same
   function connectToWs() {
-    const wsurl = 'wss://mern-chat-api-ecm2.onrender.com'
+    const wsurl = 'wss://mern-chat-api-ecm2.onrender.com';
     const ws = new WebSocket(wsurl);
     setWs(ws);
     ws.addEventListener('message', handleMessage);
@@ -30,6 +35,7 @@ export default function Chat() {
       }, 1000);
     });
   }
+
   function showOnlinePeople(peopleArray) {
     const people = {};
     peopleArray.forEach(({userId,username}) => {
@@ -37,9 +43,9 @@ export default function Chat() {
     });
     setOnlinePeople(people);
   }
+
   function handleMessage(ev) {
     const messageData = JSON.parse(ev.data);
-    console.log({ev,messageData});
     if ('online' in messageData) {
       showOnlinePeople(messageData.online);
     } else if ('text' in messageData) {
@@ -48,6 +54,7 @@ export default function Chat() {
       }
     }
   }
+
   function logout() {
     axios.post('/logout').then(() => {
       setWs(null);
@@ -55,6 +62,7 @@ export default function Chat() {
       setUsername(null);
     });
   }
+
   function sendMessage(ev, file = null) {
     if (ev) ev.preventDefault();
     ws.send(JSON.stringify({
@@ -76,6 +84,7 @@ export default function Chat() {
       }]));
     }
   }
+
   function sendFile(ev) {
     const reader = new FileReader();
     reader.readAsDataURL(ev.target.files[0]);
@@ -86,6 +95,11 @@ export default function Chat() {
       });
     };
   }
+
+  const handleContactSelect = (userId) => {
+    setSelectedUserId(userId);
+    setIsMobileMenuOpen(false); // Close mobile menu after selection
+  };
 
   useEffect(() => {
     const div = divUnderMessages.current;
@@ -121,9 +135,20 @@ export default function Chat() {
   const messagesWithoutDupes = uniqBy(messages, '_id');
 
   return (
-    <div className="flex h-screen">
-      <div className="bg-white w-1/3 flex flex-col">
-        <div className="flex-grow">
+    <div className="flex h-screen relative">
+      {/* Mobile Menu Button with improved positioning */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm h-12 flex items-center px-2">
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 hover:bg-gray-100 rounded-md"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* Sidebar - Users List */}
+      <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex absolute md:relative z-40 bg-white w-3/4 md:w-1/3 lg:w-1/4 h-full flex-col`}>
+        <div className="flex-grow overflow-y-auto">
           <Logo />
           {Object.keys(onlinePeopleExclOurUser).map(userId => (
             <Contact
@@ -131,7 +156,7 @@ export default function Chat() {
               id={userId}
               online={true}
               username={onlinePeopleExclOurUser[userId]}
-              onClick={() => {setSelectedUserId(userId);console.log({userId})}}
+              onClick={() => handleContactSelect(userId)}
               selected={userId === selectedUserId} />
           ))}
           {Object.keys(offlinePeople).map(userId => (
@@ -140,7 +165,7 @@ export default function Chat() {
               id={userId}
               online={false}
               username={offlinePeople[userId].username}
-              onClick={() => setSelectedUserId(userId)}
+              onClick={() => handleContactSelect(userId)}
               selected={userId === selectedUserId} />
           ))}
         </div>
@@ -156,22 +181,27 @@ export default function Chat() {
             className="text-sm bg-blue-100 py-1 px-2 text-gray-500 border rounded-sm">logout</button>
         </div>
       </div>
-      <div className="flex flex-col bg-blue-50 w-2/3 p-2">
-        <div className="flex-grow">
+
+      {/* Main Chat Area with top padding on mobile */}
+      <div className="flex flex-col bg-blue-50 w-full md:w-2/3 lg:w-3/4 p-2 md:p-2">
+        {/* Added padding-top wrapper for mobile */}
+        <div className="md:hidden h-12"></div>
+        
+        <div className="flex-grow relative">
           {!selectedUserId && (
             <div className="flex h-full flex-grow items-center justify-center">
-              <div className="text-gray-300">&larr; Select a person from the sidebar</div>
+              <div className="text-gray-300">&larr; Select a person from the Menu</div>
             </div>
           )}
           {!!selectedUserId && (
             <div className="relative h-full">
-              <div className="overflow-y-scroll absolute top-0 left-0 right-0 bottom-2">
+              <div className="overflow-y-auto absolute top-0 left-0 right-0 bottom-2">
                 {messagesWithoutDupes.map(message => (
                   <div key={message._id} className={(message.sender === id ? 'text-right': 'text-left')}>
-                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm " +(message.sender === id ? 'bg-blue-500 text-white':'bg-white text-gray-500')}>
+                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm max-w-[80%] break-words " +(message.sender === id ? 'bg-blue-500 text-white':'bg-white text-gray-500')}>
                       {message.text}
                       {message.file && (
-                        <div className="">
+                        <div className="truncate">
                           <a target="_blank" className="flex items-center gap-1 border-b" href={message.file}>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                               <path fillRule="evenodd" d="M18.97 3.659a2.25 2.25 0 00-3.182 0l-10.94 10.94a3.75 3.75 0 105.304 5.303l7.693-7.693a.75.75 0 011.06 1.06l-7.693 7.693a5.25 5.25 0 11-7.424-7.424l10.939-10.94a3.75 3.75 0 115.303 5.304L9.097 18.835l-.008.008-.007.007-.002.002-.003.002A2.25 2.25 0 015.91 15.66l7.81-7.81a.75.75 0 011.061 1.06l-7.81 7.81a.75.75 0 001.054 1.068L18.97 6.84a2.25 2.25 0 000-3.182z" clipRule="evenodd" />
@@ -189,7 +219,7 @@ export default function Chat() {
           )}
         </div>
         {!!selectedUserId && (
-          <form className="flex gap-2" onSubmit={sendMessage}>
+          <form className="flex gap-2 mt-2" onSubmit={sendMessage}>
             <input type="text"
                    value={newMessageText}
                    onChange={ev => setNewMessageText(ev.target.value)}
@@ -209,6 +239,14 @@ export default function Chat() {
           </form>
         )}
       </div>
+
+      {/* Overlay for mobile menu */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
     </div>
   );
 }
